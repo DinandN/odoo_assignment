@@ -1,0 +1,9 @@
+<odoo>
+    <record id="action_content_list" model="ir.actions.act_window">
+        <field name="name">Contents</field>
+        <field name="res_model">assignment.content</field>
+        <field name="view_mode">tree,form</field>
+    </record>
+
+    <menuitem id="menu_content_list" name="Contents" parent="menu_device_root" action="action_content_list"/>
+</odoo>

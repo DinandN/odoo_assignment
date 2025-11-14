@@ -1,0 +1,26 @@
+services:
+  web:
+    image: odoo:17.0
+    depends_on:
+      - mydb
+    ports:
+      - "8069:8069"
+    volumes:
+        - ./extra-addons:/mnt/extra-addons
+        - odoo-data:/var/lib/odoo
+        - ./csv_data:/mnt/csv_data:ro
+    environment:
+      - HOST=mydb
+      - USER=odoo
+      - PASSWORD=myodoo
+  mydb:
+    image: postgres:15
+    environment:
+      - POSTGRES_DB=postgres
+      - POSTGRES_PASSWORD=myodoo
+      - POSTGRES_USER=odoo
+    volumes:
+      - db-data:/var/lib/postgresql/data
+volumes:
+  odoo-data:
+  db-data:

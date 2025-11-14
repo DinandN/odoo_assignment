@@ -1,0 +1,3 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_assignment_device,access.assignment.device,model_assignment_device,base.group_user,1,1,1,1
+access_assignment_content,access.assignment.content,model_assignment_content,base.group_user,1,1,1,1
