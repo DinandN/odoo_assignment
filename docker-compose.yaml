@@ -6,9 +6,11 @@ services:
     ports:
       - "8069:8069"
     volumes:
-        - ./extra-addons:/mnt/extra-addons
-        - odoo-data:/var/lib/odoo
-        - ./csv_data:/mnt/csv_data:ro
+      - ./extra-addons:/mnt/extra-addons
+      - odoo-data:/var/lib/odoo
+      - ./csv_data:/mnt/csv_data:ro
+      - ./config/odoo.conf:/etc/odoo/odoo.conf
+      - ./logs:/var/log/odoo
     environment:
       - HOST=mydb
       - USER=odoo

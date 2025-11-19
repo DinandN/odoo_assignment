@@ -33,7 +33,7 @@ class CsvCleaner(models.TransientModel):
         match = pattern.match(timestamp_str)
 
         if not match:
-            _logger.warning(f"Timestamp format not recognized: {timestamp_str}")
+            _logger.error(f"Timestamp format not recognized: {timestamp_str}")
             return None
 
         parts = match.groups()
@@ -51,7 +51,7 @@ class CsvCleaner(models.TransientModel):
             return corrected_dt
 
         except (ValueError, OverflowError) as e:
-            _logger.warning(f"Could not construct a valid date from '{timestamp_str}': {e}")
+            _logger.error(f"Could not construct a valid date from '{timestamp_str}': {e}")
             return None
 
     @staticmethod
@@ -92,13 +92,13 @@ class CsvCleaner(models.TransientModel):
         latest_datetime_str = self._extract_latest_datetime_str(text)
 
         if not latest_datetime_str:
-            _logger.warning(f"Line {line_num}: No valid datetime pattern found.")
+            _logger.error(f"Line {line_num}: No valid datetime pattern found.")
             return None
 
         cleaned_datetime = self._fix_malformed_timestamp(latest_datetime_str)
 
         if not cleaned_datetime:
-            _logger.warning(
+            _logger.error(
                 f"Line {line_num}: Could not fix or parse the datetime string '{latest_datetime_str}'.")
             return None
 
@@ -130,12 +130,12 @@ class CsvCleaner(models.TransientModel):
         """Validates and processes the ID field, checking for duplicates."""
         id_str = re.sub(r'\D', '', id_field)
         if not id_str:
-            _logger.warning(f"Line {line_num}: DISCARDED - No numeric ID found. Original line: '{original_line}'")
+            _logger.error(f"Line {line_num}: DISCARDED - No numeric ID found. Original line: '{original_line}'")
             return None
 
         device_id = int(id_str)
         if device_id in seen_ids:
-            _logger.warning(
+            _logger.error(
                 f"Line {line_num}: DISCARDED - Duplicate ID '{device_id}' found. Original line: '{original_line}'")
             return None
 
@@ -156,12 +156,12 @@ class CsvCleaner(models.TransientModel):
             cleaned_field = field.strip()
             if re.match(r'^[A-Z0-9]{4,30}$', cleaned_field):
                 if cleaned_field in seen_codes:
-                    _logger.warning(
+                    _logger.error(
                         f"Line {line_num}: DISCARDED - Duplicate code '{cleaned_field}' found. Original line: '{original_line}'")
                     return None
                 return cleaned_field, idx
 
-        _logger.warning(
+        _logger.error(
             f"Line {line_num}: DISCARDED - No potential serial number/code found. Original line: '{original_line}'")
         return None
 
@@ -182,9 +182,9 @@ class CsvCleaner(models.TransientModel):
 
     @staticmethod
     def _truncate_field(value: str, max_len: int, field_name: str, line_num: int) -> str:
-        """Truncates a field to a maximum length and logs a warning if it was too long."""
+        """Truncates a field to a maximum length and logs a error if it was too long."""
         if len(value) > max_len:
-            _logger.warning(f"Line {line_num}: {field_name} too long, truncating. Original: '{value}'")
+            _logger.error(f"Line {line_num}: {field_name} too long, truncating. Original: '{value}'")
             return value[:max_len]
         return value
 
@@ -200,7 +200,7 @@ class CsvCleaner(models.TransientModel):
             if cleaned_field.isdigit():
                 return int(cleaned_field), idx
 
-        _logger.warning(
+        _logger.error(
             f"Line {line_num}: DISCARDED - Could not find a numeric device ID. Original line: '{original_line}'")
         return None
 
@@ -222,14 +222,14 @@ class CsvCleaner(models.TransientModel):
 
         for i, line in enumerate(lines, 1):
             if not line.strip():
-                _logger.warning(f"Line {i}: Skipping empty line.")
+                _logger.error(f"Line {i}: Skipping empty line.")
                 discarded_rows += 1
                 continue
 
             original_line = line
             fields = self._preprocess_and_split_line(original_line, delimiter)
             if not fields or not fields[0]:
-                _logger.warning(
+                _logger.error(
                     f"Line {i}: DISCARDED - Line appears to be empty after processing. Original line: '{original_line}'")
                 discarded_rows += 1
                 continue
@@ -243,7 +243,7 @@ class CsvCleaner(models.TransientModel):
             # 2. Process Datetime
             latest_dt_obj = self._parse_and_clean_datetime(original_line, i)
             if not latest_dt_obj:
-                _logger.warning(
+                _logger.error(
                     f"Line {i}: DISCARDED - No valid datetime could be processed. Original line: '{original_line}'")
                 discarded_rows += 1
                 continue

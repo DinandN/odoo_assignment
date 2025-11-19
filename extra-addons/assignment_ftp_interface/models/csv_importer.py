@@ -101,7 +101,7 @@ class CsvImporter(models.TransientModel):
                 for ext_id, row in data_by_id.items():
                     device_id = devices_by_ext_id.get(row['device_external_id'])
                     if not device_id:
-                        _logger.warning(f"Device link not found for content with content ID {ext_id}. Skipping.")
+                        _logger.error(f"Device link not found for content with content ID {ext_id}. Skipping.")
                         continue
 
                     expire_date_obj = datetime.strptime(row['expire_date'], '%Y-%m-%d %H:%M:%S')
