@@ -7,12 +7,55 @@
         <field name="model">assignment_ftp_interface.device</field>
         <field name="arch" type="xml">
             <tree string="Devices">
+                <field name="device_id"/>
                 <field name="name"/>
                 <field name="code"/>
                 <field name="state"/>
                 <field name="expire_date"/>
                 <field name="description"/>
             </tree>
+        </field>
+    </record>
+
+    <!--
+        Content of the Device form view
+    -->
+    <record id="view_device_form" model="ir.ui.view">
+        <field name="name">device.form</field>
+        <field name="model">assignment_ftp_interface.device</field>
+        <field name="arch" type="xml">
+            <form string="Device">
+                <sheet>
+                    <group>
+                        <group>
+                            <field name="name"/>
+                            <field name="code"/>
+                            <field name="device_id" readonly="1"/>
+                        </group>
+                        <group>
+                            <field name="state"/>
+                            <field name="expire_date"/>
+                        </group>
+                    </group>
+                    <group string="Description">
+                        <field name="description" nolabel="1"/>
+                    </group>
+
+                    <notebook>
+                        <page string="Contents">
+                            <field name="content_ids" nolabel="1">
+                                <tree>
+                                    <field name="content_id"/>
+                                    <field name="name"/>
+                                    <field name="description"/>
+                                    <field name="expire_date"/>
+                                    <field name="state"/>
+                                </tree>
+                            </field>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
         </field>
     </record>
 

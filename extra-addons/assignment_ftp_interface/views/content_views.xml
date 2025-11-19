@@ -1,9 +1,55 @@
 <odoo>
+    <!-- Content Tree View -->
+    <record id="view_content_tree" model="ir.ui.view">
+        <field name="name">content.tree</field>
+        <field name="model">assignment_ftp_interface.content</field>
+        <field name="arch" type="xml">
+            <tree string="Content">
+                <field name="content_id"/>
+                <field name="name"/>
+                <field name="device"/>
+                <field name="state"/>
+                <field name="expire_date"/>
+            </tree>
+        </field>
+    </record>
+
+    <!-- Content Form View -->
+    <record id="view_content_form" model="ir.ui.view">
+        <field name="name">content.form</field>
+        <field name="model">assignment_ftp_interface.content</field>
+        <field name="arch" type="xml">
+            <form string="Content">
+                <sheet>
+                    <group>
+                        <group>
+                            <field name="name"/>
+                            <field name="device"/>
+                            <field name="content_id" readonly="1"/>
+                        </group>
+                        <group>
+                            <field name="state"/>
+                            <field name="expire_date"/>
+                        </group>
+                    </group>
+                    <group string="Description">
+                        <field name="description" nolabel="1"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <!-- Update the Action to use the new views -->
     <record id="action_content_list" model="ir.actions.act_window">
         <field name="name">Contents</field>
         <field name="res_model">assignment_ftp_interface.content</field>
         <field name="view_mode">tree,form</field>
+        <!-- Link to our new views -->
+        <field name="view_ids" eval="[(5, 0, 0),
+            (0, 0, {'view_mode': 'tree', 'view_id': ref('view_content_tree')}),
+            (0, 0, {'view_mode': 'form', 'view_id': ref('view_content_form')})]"/>
     </record>
 
-    <menuitem id="menu_content_list" name="Contents" parent="menu_device_root" action="action_content_list"/>
+    <menuitem id="menu_content_list" name="Contents" parent="assignment_ftp_interface.menu_device_root" action="action_content_list"/>
 </odoo>

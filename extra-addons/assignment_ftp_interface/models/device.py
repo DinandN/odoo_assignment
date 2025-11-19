@@ -5,6 +5,7 @@ class Device(models.Model):
     _description = 'Device'
 
     id = fields.Integer(string='ID', required=True)
+    device_id = fields.Integer(string='Device ID', index=True, readonly=True)
     name = fields.Char(string='Name', required=True, size=32)
     description = fields.Char(string='Description', size=128)
     code = fields.Char(string='Code', required=True, size=30)
@@ -18,3 +19,10 @@ class Device(models.Model):
     _sql_constraints = [
         ('code_unique', 'UNIQUE(code)', 'The device code must be unique!')
     ]
+
+    # Relationship to Content model
+    content_ids = fields.One2many(
+        'assignment_ftp_interface.content',
+        'device',
+        string='Contents'
+    )

@@ -1,7 +1,6 @@
 from odoo import models, api
 from odoo.modules.module import get_module_path
 import os
-import csv
 from datetime import datetime
 import logging
 
@@ -14,17 +13,16 @@ class CsvImporter(models.TransientModel):
     @api.model
     def import_csv_data(self):
         _logger.info("Starting CSV import cron job.")
-
-        #Get the module path`
         module_path = get_module_path('assignment_ftp_interface')
         csv_path = os.path.join(module_path, 'data', 'csv')
-        _logger.info(f"Attempting to read CSV files from resolved path: {csv_path}")
 
-        # Define the delimiter used in the CSV files
         delimiter = ','
-
         self._import_devices(csv_path, delimiter)
-        # self._import_content(csv_path, delimiter)
+
+        _logger.info("Committing device data to the database before importing content.")
+        self.env.cr.commit()
+        self.env.invalidate_all()
+        self._import_content(csv_path, delimiter)
 
         _logger.info("Finished CSV import cron job.")
         return True
@@ -36,80 +34,100 @@ class CsvImporter(models.TransientModel):
         try:
             with open(device_file_path, 'r', encoding='utf-8') as file:
                 raw_content = file.read()
+                cleaner = self.env['assignment_ftp_interface.csv_cleaner']
+                cleaned_data = cleaner.clean_device_data(raw_content, delimiter)
 
-                # Use the cleaning function to preprocess the data
-                cleaner_model = self.env['assignment_ftp_interface.csv_cleaner']
-                cleaned_data = cleaner_model.clean_device_data(raw_content)
+                data_by_code = {row['code']: row for row in cleaned_data}
+                csv_codes = list(data_by_code.keys())
 
-                for row in cleaned_data:
-                    try:
-                        # Data is now clean and validated, proceed with import
-                        expire_date_obj = datetime.strptime(row['expire_date'], '%Y-%m-%d %H:%M:%S')
+                existing_devices = self.env['assignment_ftp_interface.device'].search([('code', 'in', csv_codes)])
 
-                        # The state is already cleaned, but you can add extra logic if needed
-                        state = 'disabled' if expire_date_obj < datetime.now() else row.get('state', 'enabled')
+                odoo_devices_by_code = {dev.code: dev for dev in existing_devices}
 
-                        device_vals = {
-                            # The 'id' field from the CSV is not used to create the Odoo record ID
-                            'name': row['name'],
-                            'description': row['description'],
-                            'code': row['code'],
-                            'expire_date': expire_date_obj.strftime('%Y-%m-%d %H:%M:%S'),
-                            'state': state,
-                        }
+                devices_to_create_vals = []
 
-                        # Search for existing device by the unique code
-                        existing_device = self.env['assignment_ftp_interface.device'].search(
-                            [('code', '=', row['code'])], limit=1)
+                for code, row in data_by_code.items():
+                    expire_date_obj = datetime.strptime(row['expire_date'], '%Y-%m-%d %H:%M:%S')
+                    state = 'disabled' if expire_date_obj < datetime.now() else row.get('state', 'enabled')
 
-                        if existing_device:
-                            existing_device.write(device_vals)
-                            _logger.info(f"Updated device with code: {row['code']}")
-                        else:
-                            self.env['assignment_ftp_interface.device'].create(device_vals)
-                            _logger.info(f"Created new device with code: {row['code']}")
+                    vals = {
+                        'device_id': row['id'],
+                        'name': row['name'],
+                        'description': row['description'],
+                        'code': row['code'],
+                        'expire_date': expire_date_obj.strftime('%Y-%m-%d %H:%M:%S'),
+                        'state': state,
+                    }
 
-                    except Exception as e:
-                        _logger.error(f"Error processing cleaned device row: {row}. Error: {e}")
+                    if code in odoo_devices_by_code:
+                        device_to_update = odoo_devices_by_code[code]
+                        device_to_update.write(vals)
+                        _logger.info(f"Updating device with code: {code}")
+                    else:
+                        devices_to_create_vals.append(vals)
+
+                if devices_to_create_vals:
+                    self.env['assignment_ftp_interface.device'].create(devices_to_create_vals)
+                    _logger.info(f"Created {len(devices_to_create_vals)} new devices in bulk.")
+
+
         except FileNotFoundError:
             _logger.error(f"Device CSV file not found at: {device_file_path}")
+        except Exception as e:
+            _logger.error(f"An unexpected error occurred during device import: {e}", exc_info=True)
 
     @api.model
     def _import_content(self, path, delimiter):
         content_file_path = os.path.join(path, 'content.csv')
+        _logger.info(f"Starting BULK import of content from: {content_file_path}")
         try:
-            with open(content_file_path, 'r') as file:
-                reader = csv.DictReader(file, delimiter=delimiter)
-                for row in reader:
-                    try:
-                        device = self.env['device'].search([('code', '=', row['device_code'])], limit=1)
-                        if not device:
-                            _logger.warning(
-                                f"Device with code {row['device_code']} not found for content {row['name']}. Skipping.")
-                            continue
+            with open(content_file_path, 'r', encoding='utf-8') as file:
+                raw_content = file.read()
+                cleaner = self.env['assignment_ftp_interface.csv_cleaner']
+                cleaned_data = cleaner.clean_content_data(raw_content, delimiter)
 
-                        expire_date = datetime.strptime(row['expire_date'], '%Y-%m-%d %H:%M:%S')
-                        state = 'disabled' if expire_date < datetime.now() else row.get('state', 'enabled')
+                all_devices = self.env['assignment_ftp_interface.device'].search([])
+                devices_by_ext_id = {dev.device_id: dev.id for dev in all_devices if dev.device_id}
 
-                        content_vals = {
-                            'name': row['name'],
-                            'description': row['description'],
-                            'device': device.id,
-                            'expire_date': expire_date,
-                            'state': state,
-                        }
+                data_by_id = {row['id']: row for row in cleaned_data}
+                csv_ids = list(data_by_id.keys())
 
-                        # Assuming content is uniquely identified by name and device for simplicity
-                        existing_content = self.env['content'].search(
-                            [('name', '=', row['name']), ('device', '=', device.id)], limit=1)
-                        if existing_content:
-                            existing_content.write(content_vals)
-                            _logger.info(f"Updated content: {row['name']} for device: {device.code}")
-                        else:
-                            self.env['content'].create(content_vals)
-                            _logger.info(f"Created new content: {row['name']} for device: {device.code}")
+                existing_content = self.env['assignment_ftp_interface.content'].search(
+                    [('content_id', 'in', csv_ids)])
+                odoo_content_by_ext_id = {c.content_id: c for c in existing_content}
 
-                    except Exception as e:
-                        _logger.error(f"Error processing content row: {row}. Error: {e}")
+                content_to_create_vals = []
+
+                for ext_id, row in data_by_id.items():
+                    device_id = devices_by_ext_id.get(row['device_external_id'])
+                    if not device_id:
+                        _logger.warning(f"Device link not found for content with content ID {ext_id}. Skipping.")
+                        continue
+
+                    expire_date_obj = datetime.strptime(row['expire_date'], '%Y-%m-%d %H:%M:%S')
+                    state = 'disabled' if expire_date_obj < datetime.now() else row.get('state', 'enabled')
+
+                    vals = {
+                        'content_id': ext_id,
+                        'name': row['name'],
+                        'description': row['description'],
+                        'device': device_id,
+                        'expire_date': expire_date_obj.strftime('%Y-%m-%d %H:%M:%S'),
+                        'state': state,
+                    }
+
+                    if ext_id in odoo_content_by_ext_id:
+                        content_to_update = odoo_content_by_ext_id[ext_id]
+                        content_to_update.write(vals)
+                        _logger.info(f"Updating content with content ID: {ext_id}")
+                    else:
+                        content_to_create_vals.append(vals)
+
+                if content_to_create_vals:
+                    self.env['assignment_ftp_interface.content'].create(content_to_create_vals)
+                    _logger.info(f"Created {len(content_to_create_vals)} new content records in bulk.")
+
         except FileNotFoundError:
             _logger.error(f"Content CSV file not found at: {content_file_path}")
+        except Exception as e:
+            _logger.error(f"An unexpected error occurred during content import: {e}", exc_info=True)

@@ -10,9 +10,6 @@ class CsvCleaner(models.TransientModel):
     _name = 'assignment_ftp_interface.csv_cleaner'
     _description = 'CSV Cleaner Transient Model'
 
-    _device_columns = ['id', 'name', 'description', 'code', 'expire_date', 'state']
-    _content_columns = ['id', 'name', 'description', 'device_code', 'expire_date', 'state']
-
     # --- DATETIME HELPER METHODS ---
 
     @staticmethod
@@ -30,8 +27,8 @@ class CsvCleaner(models.TransientModel):
         pattern = re.compile(
             r'(\d{4})-(\d{2})-(\d{2})\s+'  # Date: YYYY-MM-DD
             r'(\d{2}):(\d{2}):(\d{2})'  # Time: HH:MM:SS
-            r'(?:\.(\d+))?'  # Optional Milliseconds
-            r'([+-]\d{2}:\d{2})?'  # Optional Timezone
+            r'(?:\.(\d+))?'  # Milliseconds
+            r'([+-]\d{2}:\d{2})?'  # Timezone
         )
         match = pattern.match(timestamp_str)
 
@@ -110,23 +107,23 @@ class CsvCleaner(models.TransientModel):
     # --- HELPER METHODS ---
 
     @staticmethod
-    def _preprocess_and_split_line(line: str) -> List[str]:
+    def _preprocess_and_split_line(line: str, delimiter: str) -> List[str]:
         """
         Pre-processes a raw CSV line to handle specific malformations like
-        missing commas between an ID and a quoted field, then splits it into a list of fields.
+        missing delimiters between an ID and a quoted field, then splits it into a list of fields.
         """
-        # Add a comma between a number and a quote if it's missing
-        corrected_line = re.sub(r'(\d)(")', r'\1,\2', line.strip())
+        # Add a delimiter between a number and a quote if it's missing
+        corrected_line = re.sub(r'(\d)(")', r'\1' + delimiter + r'\2', line.strip())
 
         # This regex finds a closing quote, optional whitespace, and an opening quote,
-        # and replaces it with a '","' sequence to ensure separation.
-        corrected_line = re.sub(r'"\s*"', '","', corrected_line)
+        # and replaces it with a sequence of quote, delimiter, quote to ensure separation.
+        corrected_line = re.sub(r'"\s*"', f'"{delimiter}"', corrected_line)
 
-        # Standardize commas by removing whitespace around them and remove any trailing comma.
-        standardized_line = re.sub(r'\s*,\s*', ',', corrected_line).rstrip(',')
+        # Standardize delimiters by removing whitespace around them and remove any trailing delimiter.
+        standardized_line = re.sub(r'\s*' + re.escape(delimiter) + r'\s*', delimiter, corrected_line).rstrip(delimiter)
 
         # Split into a list of fields.
-        return standardized_line.split(',')
+        return standardized_line.split(delimiter)
 
     @staticmethod
     def _process_id(id_field: str, seen_ids: Set[int], line_num: int, original_line: str) -> Optional[int]:
@@ -191,10 +188,26 @@ class CsvCleaner(models.TransientModel):
             return value[:max_len]
         return value
 
-    # --- MAIN CLEANING METHOD ---
+    @staticmethod
+    def _find_content_device_id(fields: List[str], line_num: int, original_line: str) -> Optional[Tuple[int, int]]:
+        """
+        Finds the numeric device ID and its index from the content fields.
+        It scans from right to left to robustly find the ID before the date/state.
+        """
+        # Iterate backwards from the third-to-last field to avoid status/dates
+        for idx in range(len(fields) - 3, 0, -1):
+            cleaned_field = fields[idx].strip()
+            if cleaned_field.isdigit():
+                return int(cleaned_field), idx
+
+        _logger.warning(
+            f"Line {line_num}: DISCARDED - Could not find a numeric device ID. Original line: '{original_line}'")
+        return None
+
+    # --- MAIN CLEANING METHODS ---
 
     @api.model
-    def clean_device_data(self, raw_data: str) -> List[Dict[str, Any]]:
+    def clean_device_data(self, raw_data: str, delimiter: str) -> List[Dict[str, Any]]:
         """
         Cleans and validates raw CSV data for device import with detailed logging.
         """
@@ -214,7 +227,7 @@ class CsvCleaner(models.TransientModel):
                 continue
 
             original_line = line
-            fields = self._preprocess_and_split_line(original_line)
+            fields = self._preprocess_and_split_line(original_line, delimiter)
             if not fields or not fields[0]:
                 _logger.warning(
                     f"Line {i}: DISCARDED - Line appears to be empty after processing. Original line: '{original_line}'")
@@ -272,5 +285,79 @@ class CsvCleaner(models.TransientModel):
         _logger.info(
             f"Cleaning process finished. Total rows: {total_rows}, "
             f"Successfully cleaned: {success_rows}, Discarded: {discarded_rows}."
+        )
+        return cleaned_rows
+
+    @api.model
+    def clean_content_data(self, raw_data: str, delimiter: str) -> List[Dict[str, Any]]:
+        """
+        Cleans and validates raw CSV data for content import.
+        This is a separate function dedicated to processing content.csv.
+        """
+        cleaned_rows = []
+        seen_ids = set()
+        discarded_rows = 0
+
+        lines = raw_data.strip().split('\n')
+        total_rows = len(lines)
+        _logger.info(f"Starting DEDICATED content cleaning for {total_rows} raw lines.")
+
+        for i, line in enumerate(lines, 1):
+            if not line.strip():
+                discarded_rows += 1
+                continue
+
+            original_line = line
+            fields = self._preprocess_and_split_line(original_line, delimiter)
+            if not fields or not fields[0]:
+                discarded_rows += 1
+                continue
+
+            # 1. Process Content ID
+            content_id = self._process_id(fields[0], seen_ids, i, original_line)
+            if content_id is None:
+                discarded_rows += 1
+                continue
+
+            # 2. Process Datetime
+            latest_dt_obj = self._parse_and_clean_datetime(original_line, i)
+            if not latest_dt_obj:
+                discarded_rows += 1
+                continue
+            latest_datetime_str = latest_dt_obj.strftime('%Y-%m-%d %H:%M:%S')
+
+            # 3. Extract Status
+            status = self._extract_status(fields)
+
+            # 4. Find Device ID
+            device_id_info = self._find_content_device_id(fields, i, original_line)
+            if not device_id_info:
+                discarded_rows += 1
+                continue
+            device_external_id, device_id_index = device_id_info
+
+            # 5. Extract Name and Description
+            name, desc = self._extract_name_and_description(fields, device_id_index, content_id)
+
+            # 6. Truncate fields (reusing existing helper)
+            content_name = self._truncate_field(name, 100, "Content Name", i)
+            content_description = self._truncate_field(desc, 128, "Content Description", i)
+
+            # 7. Assemble the clean data dictionary
+            final_row = {
+                'id': content_id,
+                'name': content_name,
+                'description': content_description,
+                'device_external_id': device_external_id,
+                'expire_date': latest_datetime_str,
+                'state': status
+            }
+
+            cleaned_rows.append(final_row)
+            seen_ids.add(content_id)
+            _logger.info(f"Line {i}: Successfully cleaned content row. Result: {final_row}")
+
+        _logger.info(
+            f"Content cleaning finished. Total: {total_rows}, Cleaned: {len(cleaned_rows)}, Discarded: {discarded_rows}."
         )
         return cleaned_rows
