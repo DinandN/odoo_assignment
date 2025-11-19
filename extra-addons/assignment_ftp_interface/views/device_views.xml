@@ -1,10 +1,31 @@
 <odoo>
+    <!--
+        Device record form view
+    -->
+    <record id="view_device_tree" model="ir.ui.view">
+        <field name="name">device.tree</field>
+        <field name="model">assignment_ftp_interface.device</field>
+        <field name="arch" type="xml">
+            <tree string="Devices">
+                <field name="name"/>
+                <field name="code"/>
+                <field name="state"/>
+                <field name="expire_date"/>
+                <field name="description"/>
+            </tree>
+        </field>
+    </record>
+
+    <!--
+        Action and Menu Items
+    -->
     <record id="action_device_list" model="ir.actions.act_window">
         <field name="name">Devices</field>
-        <field name="res_model">assignment.device</field>
+        <field name="res_model">assignment_ftp_interface.device</field>
         <field name="view_mode">tree,form</field>
     </record>
 
     <menuitem id="menu_device_root" name="Assignment"/>
     <menuitem id="menu_device_list" name="Devices" parent="menu_device_root" action="action_device_list"/>
+
 </odoo>

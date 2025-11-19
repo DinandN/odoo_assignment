@@ -25,6 +25,7 @@ Long description of module's purpose
         'security/ir.model.access.csv',
         'views/device_views.xml',
         'views/content_views.xml',
+        'data/ir_cron_data.xml',
     ],
     # only loaded in demonstration mode
     'demo': [
