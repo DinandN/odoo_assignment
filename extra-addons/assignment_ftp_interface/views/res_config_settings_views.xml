@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+
+        <!-- STEP 1: We CREATE a new, standalone form view. -->
+        <!-- Notice there is NO 'inherit_id'. This view stands on its own and cannot fail. -->
+        <record id="res_config_settings_view_form" model="ir.ui.view">
+            <field name="name">assignment_ftp_interface.res.config.settings.view.form</field>
+            <field name="model">res.config.settings</field>
+            <field name="arch" type="xml">
+                <form string="CSV Import Settings" class="oe_form_configuration">
+                    <header>
+                        <button string="Save" type="object" name="execute" class="oe_highlight"/>
+                        <button string="Cancel" type="object" name="cancel" class="oe_link" special="cancel"/>
+                    </header>
+                    <div class="o_setting_container">
+                        <div class="settings">
+                            <div class="app_settings_block" data-string="CSV Importer" string="CSV Importer" data-key="assignment_ftp_interface">
+                                <h2>CSV File Import Settings</h2>
+                                <!-- ... all your fields go here ... -->
+                                <div class="row mt16 o_settings_container">
+                                    <div class="col-12 col-lg-6 o_setting_box">
+                                        <div class="o_setting_right_pane">
+                                            <label for="csv_import_path"/>
+                                            <div class="text-muted">Local path to the directory with the .csv files</div>
+                                            <div class="content-group">
+                                                <div class="mt16"><field name="csv_import_path"/></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-12 col-lg-6 o_setting_box">
+                                        <div class="o_setting_right_pane">
+                                            <label for="csv_delimiter"/>
+                                            <div class="text-muted">Delimiter to use in the .csv files</div>
+                                            <div class="content-group">
+                                                <div class="mt16"><field name="csv_delimiter"/></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </field>
+        </record>
+
+        <!-- STEP 2: We CREATE an action that opens OUR new view specifically. -->
+        <record id="action_csv_importer_config" model="ir.actions.act_window">
+            <field name="name">CSV Importer Settings</field>
+            <field name="type">ir.actions.act_window</field>
+            <field name="res_model">res.config.settings</field>
+            <field name="view_mode">form</field>
+            <!-- This line links the action directly to our new view -->
+            <field name="view_id" ref="res_config_settings_view_form"/>
+            <field name="target">inline</field>
+            <field name="context">{'module' : 'assignment_ftp_interface'}</field>
+        </record>
+
+        <!-- STEP 3: We place the menu link inside the main Settings app. -->
+        <!-- The parent="base_setup.menu_config" is the key to correct integration. -->
+        <menuitem id="menu_csv_importer_settings"
+                  name="CSV Importer"
+                  parent="base_setup.menu_config"
+                  sequence="100"
+                  action="action_csv_importer_config"
+                  groups="base.group_system"/>
+
+    </data>
+</odoo>

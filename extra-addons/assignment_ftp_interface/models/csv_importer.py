@@ -1,5 +1,4 @@
 from odoo import models, api
-from odoo.modules.module import get_module_path
 import os
 from datetime import datetime
 import logging
@@ -11,12 +10,27 @@ class CsvImporter(models.TransientModel):
     _description = 'CSV Import Transient Model'
 
     @api.model
+    def get_csv_settings(self):
+        """
+        Retrieves the CSV import path and delimiter from the Odoo system parameters.
+        """
+        get_param = self.env['ir.config_parameter'].sudo().get_param
+        # Retrieve the CSV path from settings
+        path = get_param('assignment_ftp_interface.csv_import_path')
+        # Retrieve the CSV delimiter from settings, with a fallback default of ','
+        delimiter = get_param('assignment_ftp_interface.csv_delimiter', default=',')
+        return path, delimiter
+
+    @api.model
     def import_csv_data(self):
         _logger.info("Starting CSV import cron job.")
-        module_path = get_module_path('assignment_ftp_interface')
-        csv_path = os.path.join(module_path, 'data', 'csv')
 
-        delimiter = ','
+        csv_path, delimiter = self.get_csv_settings()
+
+        if not csv_path:
+            _logger.error("The CSV import path is not configured. Please set it in the settings.")
+            return False
+
         self._import_devices(csv_path, delimiter)
 
         _logger.info("Committing device data to the database before importing content.")
