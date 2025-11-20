@@ -1,11 +1,12 @@
 from odoo import models, api
 import os
 from datetime import datetime
+from ..utils import csv_cleaner
 import logging
 
 _logger = logging.getLogger(__name__)
 
-class CsvImporter(models.TransientModel):
+class CsvImporter(models.Model):
     _name = 'assignment_ftp_interface.csv_importer'
     _description = 'CSV Import Transient Model'
 
@@ -32,10 +33,6 @@ class CsvImporter(models.TransientModel):
             return False
 
         self._import_devices(csv_path, delimiter)
-
-        _logger.info("Committing device data to the database before importing content.")
-        self.env.cr.commit()
-        self.env.invalidate_all()
         self._import_content(csv_path, delimiter)
 
         _logger.info("Finished CSV import cron job.")
@@ -48,8 +45,7 @@ class CsvImporter(models.TransientModel):
         try:
             with open(device_file_path, 'r', encoding='utf-8') as file:
                 raw_content = file.read()
-                cleaner = self.env['assignment_ftp_interface.csv_cleaner']
-                cleaned_data = cleaner.clean_device_data(raw_content, delimiter)
+                cleaned_data = csv_cleaner.clean_device_data(raw_content, delimiter)
 
                 data_by_code = {row['code']: row for row in cleaned_data}
                 csv_codes = list(data_by_code.keys())
@@ -97,8 +93,7 @@ class CsvImporter(models.TransientModel):
         try:
             with open(content_file_path, 'r', encoding='utf-8') as file:
                 raw_content = file.read()
-                cleaner = self.env['assignment_ftp_interface.csv_cleaner']
-                cleaned_data = cleaner.clean_content_data(raw_content, delimiter)
+                cleaned_data = csv_cleaner.clean_content_data(raw_content, delimiter)
 
                 all_devices = self.env['assignment_ftp_interface.device'].search([])
                 devices_by_ext_id = {dev.device_id: dev.id for dev in all_devices if dev.device_id}

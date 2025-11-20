@@ -2,4 +2,3 @@ id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
 access_assignment_ftp_interface_device,assignment_ftp_interface.device access,model_assignment_ftp_interface_device,base.group_user,1,0,0,0
 access_assignment_ftp_interface_content,assignment_ftp_interface.content access,model_assignment_ftp_interface_content,base.group_user,1,0,0,0
 access_assignment_ftp_interface_csv_importer,assignment_ftp_interface.csv_importer access,model_assignment_ftp_interface_csv_importer,base.group_system,1,1,1,1
-access_assignment_ftp_interface_csv_cleaner,assignment_ftp_interface.csv_cleaner access,model_assignment_ftp_interface_csv_cleaner,base.group_system,1,1,1,1

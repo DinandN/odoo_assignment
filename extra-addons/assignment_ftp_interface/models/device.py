@@ -20,9 +20,4 @@ class Device(models.Model):
         ('code_unique', 'UNIQUE(code)', 'The device code must be unique!')
     ]
 
-    # Relationship to Content model
-    content_ids = fields.One2many(
-        'assignment_ftp_interface.content',
-        'device',
-        string='Contents'
-    )
+    content_ids = fields.One2many('assignment_ftp_interface.content','device',string='Contents')
