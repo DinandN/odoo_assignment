@@ -8,7 +8,7 @@ _logger = logging.getLogger(__name__)
 
 class CsvImporter(models.Model):
     _name = 'assignment_ftp_interface.csv_importer'
-    _description = 'CSV Import Transient Model'
+    _description = 'CSV Import Model'
 
     @api.model
     def get_csv_settings(self):
