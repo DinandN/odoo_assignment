@@ -5,7 +5,6 @@ from typing import Optional, List, Dict, Any, Tuple, Set
 
 _logger = logging.getLogger(__name__)
 
-
 # --- DATETIME HELPER FUNCTIONS ---
 
 def _fix_malformed_timestamp(timestamp_str: str) -> Optional[datetime]:
@@ -49,7 +48,6 @@ def _fix_malformed_timestamp(timestamp_str: str) -> Optional[datetime]:
         _logger.error(f"Could not construct a valid date from '{timestamp_str}': {e}")
         return None
 
-
 def _extract_latest_datetime_str(text: str) -> Optional[str]:
     """
     Finds all datetime-like strings in a line of text and returns the most recent one.
@@ -72,7 +70,6 @@ def _extract_latest_datetime_str(text: str) -> Optional[str]:
         return max(matches)
 
     return matches[0]
-
 
 def _parse_and_clean_datetime(text: str, line_num: int) -> Optional[datetime]:
     """
@@ -100,7 +97,6 @@ def _parse_and_clean_datetime(text: str, line_num: int) -> Optional[datetime]:
 
     return cleaned_datetime
 
-
 # --- GENERAL HELPER FUNCTIONS ---
 
 def _preprocess_and_split_line(line: str, delimiter: str) -> List[str]:
@@ -121,7 +117,6 @@ def _preprocess_and_split_line(line: str, delimiter: str) -> List[str]:
     # Split into a list of fields.
     return standardized_line.split(delimiter)
 
-
 def _process_id(id_field: str, seen_ids: Set[int], line_num: int, original_line: str) -> Optional[int]:
     """Validates and processes the ID field, checking for duplicates."""
     id_str = re.sub(r'\D', '', id_field)
@@ -137,7 +132,6 @@ def _process_id(id_field: str, seen_ids: Set[int], line_num: int, original_line:
 
     return entity_id
 
-
 def _extract_status(fields: List[str]) -> str:
     """Extracts the status ('enabled' or 'deleted') from a list of fields."""
     for field in fields:
@@ -145,9 +139,7 @@ def _extract_status(fields: List[str]) -> str:
             return field.lower().strip()
     return 'enabled'
 
-
-def _find_device_code(fields: List[str], seen_codes: Set[str], line_num: int, original_line: str) -> Optional[
-    Tuple[str, int]]:
+def _find_device_code(fields: List[str], seen_codes: Set[str], line_num: int, original_line: str) -> Optional[Tuple[str, int]]:
     """Finds the device code and its index, checking for duplicates."""
     for idx, field in enumerate(fields):
         cleaned_field = field.strip()
@@ -161,7 +153,6 @@ def _find_device_code(fields: List[str], seen_codes: Set[str], line_num: int, or
     _logger.error(
         f"Line {line_num}: DISCARDED - No potential serial number/code found. Original line: '{original_line}'")
     return None
-
 
 def _extract_name_and_description(fields: List[str], code_index: int, entity_id: int) -> Tuple[str, str]:
     """Extracts the name and description based on a key field's position."""
@@ -177,14 +168,12 @@ def _extract_name_and_description(fields: List[str], code_index: int, entity_id:
 
     return name, description
 
-
 def _truncate_field(value: str, max_len: int, field_name: str, line_num: int) -> str:
     """Truncates a field to a maximum length and logs a error if it was too long."""
     if len(value) > max_len:
         _logger.error(f"Line {line_num}: {field_name} too long, truncating. Original: '{value}'")
         return value[:max_len]
     return value
-
 
 def _find_content_device_id(fields: List[str], line_num: int, original_line: str) -> Optional[Tuple[int, int]]:
     """
@@ -200,7 +189,6 @@ def _find_content_device_id(fields: List[str], line_num: int, original_line: str
     _logger.error(
         f"Line {line_num}: DISCARDED - Could not find a numeric device ID. Original line: '{original_line}'")
     return None
-
 
 # --- MAIN PUBLIC FUNCTIONS ---
 
@@ -284,7 +272,6 @@ def clean_device_data(raw_data: str, delimiter: str) -> List[Dict[str, Any]]:
         f"Successfully cleaned: {success_rows}, Discarded: {discarded_rows}."
     )
     return cleaned_rows
-
 
 def clean_content_data(raw_data: str, delimiter: str) -> List[Dict[str, Any]]:
     """
